@@ -8,11 +8,12 @@ on:
     branches: [ "main" ]
 
 env:
-  DOTNET_VERSION: '5.0.x'
+  DOTNET_VERSION: '5.0.x'         # set this to the .NET Core version to use
+  AZURE_WEBAPP_PACKAGE_PATH: '.'  # set this to the path to your web app project, defaults to the repository root
   AZURE_WEBAPP_DEV_NAME: MVC5CoreApp-Dev
   AZURE_WEBAPP_UAT_NAME: MVC5CoreApp-UAT
   AZURE_WEBAPP_PROD_NAME: MVC5CoreApp-Prod
-
+  
 jobs:
   build:
     name: Build & Publish
@@ -30,47 +31,70 @@ jobs:
         run: dotnet restore
       
       - name: Build app 🚀
-        run: dotnet build -c Release --no-restore
+        #run: dotnet build -c Release --no-restore
+        run: dotnet build --configuration Release
 
       - name: Publish app 📰
-        run: dotnet publish -c Release -o ./out
+        #run: dotnet publish -c Release -o ./out
+        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v3
+        with:
+          name: .net-app
+          path: ${{env.DOTNET_ROOT}}/myapp
+          
   deploydev:
     needs: build
     name: Deploy to Dev
     runs-on: ubuntu-latest
     steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v3
+        with:
+          name: .net-app
+          
       - name: Deploy to Azure Web Apps DEV 🚢
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_DEV_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_DEV_PUBLISH_SECRET }}
-          package: ./out
+          #package: ./out
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
   deployuat:
     needs: deploydev
     name: Deploy to UAT
     runs-on: ubuntu-latest
     steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v3
+        with:
+          name: .net-app
+    
       - name: Deploy to Azure Web Apps UAT 🚢
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_UAT_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_UAT_PUBLISH_SECRET }}
-          package: ./out
-
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
   deployprod:
     needs: deployuat
     name: Deploy to PROD
     runs-on: ubuntu-latest
     steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v3
+        with:
+          name: .net-app
+    
       - name: Deploy to Azure Web Apps PROD 🚢
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_PROD_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PROD_PUBLISH_SECRET }}
-          package: ./out
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
          
 
 
