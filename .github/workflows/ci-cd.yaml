@@ -2,17 +2,17 @@ name: Continuous Integration and Deployment
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
-  DOTNET_VERSION: '5.0.x'         # set this to the .NET Core version to use
-  AZURE_WEBAPP_PACKAGE_PATH: '.'  # set this to the path to your web app project, defaults to the repository root
+  DOTNET_VERSION: "5.0.x" # set this to the .NET Core version to use
+  AZURE_WEBAPP_PACKAGE_PATH: "." # set this to the path to your web app project, defaults to the repository root
   AZURE_WEBAPP_DEV_NAME: MVC5CoreApp-Dev
   AZURE_WEBAPP_UAT_NAME: MVC5CoreApp-UAT
   AZURE_WEBAPP_PROD_NAME: MVC5CoreApp-Prod
-  
+
 jobs:
   build:
     name: Build & Publish
@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Check out code 🛎
         uses: actions/checkout@v2
-      
+
       - name: Setup .NET 5 🔧
         uses: actions/setup-dotnet@v1
         with:
@@ -28,13 +28,11 @@ jobs:
 
       - name: Restore dependencies 🛠
         run: dotnet restore
-      
+
       - name: Build app 🚀
-        #run: dotnet build -c Release --no-restore
         run: dotnet build --configuration Release
 
       - name: Publish app 📰
-        #run: dotnet publish -c Release -o ./out
         run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
@@ -42,23 +40,39 @@ jobs:
         with:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/myapp
-          
+
+  deploydev:
+    needs: build
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    steps:
+      #- name: ServiceNow Change
+      #  uses: ServiceNow/servicenow-devops-change@v1.34.2
+      #  with:
+      #    devops-integration-user-name: ${{ secrets.SN_DEVOPS_USER }}
+      #    devops-integration-user-password: ${{ secrets.SN_DEVOPS_PASSWORD }}
+      #    instance-url: ${{ secrets.SN_INSTANCE_URL }}
+      #    tool-id: ${{ secrets.SN_ORCHESTRATION_TOOL_ID }}
+      #    context-github: ${{ toJSON(github) }}
+      #    job-name: "Deploy"
+      #   change-request: '{"setCloseCode":"true","attributes":{"short_description":"Automated Software Deployment","description":"Automated Software Deployment.","assignment_group":"b85d44954a3623120004689b2d5dd60a","implementation_plan":"Software update is tested and results can be found in Test Summaries Tab; When the change is approved the implementation happens automated by the CICD pipeline within the change planned start and end time window.","backout_plan":"When software fails in production, the previous software release will be re-deployed.","test_plan":"Testing if the software was successfully deployed"}}'
+      #    interval: "100"
+      #    timeout: "3600"
+
       - name: Download artifact from build job
         uses: actions/download-artifact@v3
         with:
           name: .net-app
-          
+
       - name: Deploy to Azure Web Apps DEV 🚢
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_DEV_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_DEV_PUBLISH_SECRET }}
-          #package: ./out
           package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
   deployuat:
-    #needs: deploydev
-    needs: build
+    needs: deploydev
     name: Deploy to UAT
     runs-on: ubuntu-latest
     steps:
@@ -66,7 +80,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: .net-app
-    
+
       - name: Deploy to Azure Web Apps UAT 🚢
         uses: azure/webapps-deploy@v2
         with:
@@ -83,13 +97,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: .net-app
-    
+
       - name: Deploy to Azure Web Apps PROD 🚢
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_PROD_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PROD_PUBLISH_SECRET }}
           package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-         
-
-
